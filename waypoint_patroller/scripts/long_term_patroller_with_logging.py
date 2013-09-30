@@ -64,12 +64,12 @@ class PanTilt(smach.State):
 
 	if (len(userdata.goal_pose) > 12):
 	   pose = scitos_ptu.msg.PanTiltGoal()
-	   pose.pan_start = userdata.goal_pose[8]
-	   pose.pan_step = userdata.goal_pose[9]
-	   pose.pan_end = userdata.goal_pose[10]
-	   pose.tilt_start = userdata.goal_pose[11]
-	   pose.tilt_step = userdata.goal_pose[12]
-	   pose.tilt_end = userdata.goal_pose[13]
+	   pose.pan_start = userdata.goal_pose[7]
+	   pose.pan_step = userdata.goal_pose[8]
+	   pose.pan_end = userdata.goal_pose[9]
+	   pose.tilt_start = userdata.goal_pose[10]
+	   pose.tilt_step = userdata.goal_pose[11]
+	   pose.tilt_end = userdata.goal_pose[12]
 
 	   # START LOGGING HERE
 	   start_stop_recording = rospy.ServiceProxy('start_stop_recording', StartStopRecording)
@@ -77,7 +77,7 @@ class PanTilt(smach.State):
 
 	   self.ptuClient.send_goal(pose)
            self.ptuClient.wait_for_result()
-           result=self.ptuClient.get_state()
+           result=self.ptuClient.get_result()
            rospy.loginfo("PanTilt action server returned with state ")
            rospy.loginfo(result)
 
