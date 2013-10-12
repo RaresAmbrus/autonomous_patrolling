@@ -112,31 +112,5 @@ if __name__ == '__main__':
         rospy.loginfo("Executing waypoint_patroller with infinite iterations")
 
         
-<<<<<<< HEAD
-
-    
- 
-
-    # Execute SMACH plan
-
-    sis = smach_ros.IntrospectionServer('server_name', long_term_patrol_sm, '/SM_ROOT')
-    sis.start()
-    outcome = long_term_patrol_sm.execute()
-
-    rospy.spin()
-    sis.stop()
-
-
-if __name__ == '__main__':
-    main()
-
-
-
-
-
-
-
-=======
     l =  LongTermPatroller(waypoints_name, is_random, n_iterations)
     l.main()
->>>>>>> upstream/master
