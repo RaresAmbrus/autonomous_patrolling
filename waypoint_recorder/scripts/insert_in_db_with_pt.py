@@ -4,6 +4,7 @@ import rospy
 
 from interactive_markers.interactive_marker_server import *
 from geometry_msgs.msg import Pose
+from scitos_msgs import PanTilt
 
 import pymongo
 import csv
@@ -47,29 +48,16 @@ def way_points_file_to_datacentre(filename, dataset_name, map_name):
         strands_datacentre.util.store_message(points_db,p,entry)
 
 	if (len(point) > 12):
-		entry["name"]="Point%d_pan_start"%i
-		pan_start = point[7]	
-        	strands_datacentre.util.store_message(points_db,pan_start,entry)
-
-		entry["name"]="Point%d_pan_increment"%i
-		pan_inc = point[8]	
-        	strands_datacentre.util.store_message(points_db,pan_inc,entry)
-
-		entry["name"]="Point%d_pan_stop"%i
-		pan_stop = point[9]	
-        	strands_datacentre.util.store_message(points_db,pan_stop,entry)
-
-		entry["name"]="Point%d_tilt_start"%i
-		tilt_start = point[10]	
-        	strands_datacentre.util.store_message(points_db,tilt_start,entry)
-		
-		entry["name"]="Point%d_tilt_increment"%i
-		tilt_inc = point[11]	
-        	strands_datacentre.util.store_message(points_db,tilt_inc,entry)
-
-		entry["name"]="Point%d_tilt_stop"%i
-		tilt_stop = point[12]	
-        	strands_datacentre.util.store_message(points_db,tilt_stop,entry)
+		pt = PanTilt()
+		entry["name"]="Point%d_pan_tilt"%i
+		pt.pan_start = point[7]	
+		pt.pan_increment = point[8]	
+		pt.pan_stop = point[9]	
+		pt.tilt_start = point[10]	
+		pt.tilt_increment = point[11]	
+		pt.tilt_stop = point[12]	
+        	
+		strands_datacentre.util.store_message(points_db,pt,entry)
 
 if __name__=="__main__":
     if len(sys.argv)!=4:
