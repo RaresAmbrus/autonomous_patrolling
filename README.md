@@ -1,4 +1,5 @@
 # The autonomous patrolling package
+           
 
 This package allows for the sequential or randomized visit of a set of pre-defined waypoints in the environment, along with a charging behaviour when the battery level drops below a given treshold. It also has two tools for creating and saving a map, and for creating and saving a set of waypoints.
 It assumes that either a [morse simulation](https://github.com/strands-project/strands_morse) or the [scitos_bringup](https://github.com/strands-project/scitos_robot) have been launched
@@ -41,7 +42,9 @@ The `ap_map_saver` can also be used in conjunction with the rumblepad, where the
 
     
 ## The waypoint recorder
-  
+The waypoint recorder uses the robot_pose topic instead of the amcl_pose topic. This makes saving accuracy waypoints easier as the updates are comming in more frequently. In order for poses to be published on this topic run the robot_pose_publisher:
+      
+      $ rosrun robot_pose_publisher robot_pose_publisher  
 
 ### Without rumblepad
 
@@ -70,7 +73,7 @@ The `waypoint_recorder` can also be used in conjunction with the rumblepad, wher
                 
 * Launch the `waypoint_recorder`, with an optional argument:
         
-           $ roslaunch waypoint_recorder waypoint_recorder.launch map:="file path to the map's .yaml file" waypoints:="file path to the file where waypoints shoud be saved"
+           $ rosrun waypoint_recorder waypoint_recorder.launch map:="file path to the map's .yaml file" waypoints:="file path to the file where waypoints shoud be saved"
                 
 * (Optional) Start rviz to check if the robot is well localized, and give it a pose estimate if needed: 
      
@@ -88,7 +91,7 @@ The `waypoint_recorder` can also be used in conjunction with the rumblepad, wher
 
 ## The waypoint patroller
 
-Aunonomously  visits a pre-defined list of points randomly or in sequence. Goes to charge when battery drops below a given treshold and after it is recharged, continues the patrolling. Assumes static map and waypoints files are given as input, and that the first point in the waypoints file is the point the robot should navigate to when it needs to charge. To run:
+Aunonomously  visits a pre-defined list of points randomly or in sequence. Goes to charge when battery drops below a given treshold and after it is recharged, continues the patrolling. Assumes static map and waypoints set are given as input.
 
 * Launch the scitos 2d navigation:
 
@@ -100,12 +103,25 @@ Aunonomously  visits a pre-defined list of points randomly or in sequence. Goes 
 * (Optional) Start rviz to check if the robot is well localized, and give it a pose estimate if needed: 
      
            $ rosrun rviz rviz
-           
+      
+* Launch the strands_datacentre:
+```
+HOSTNAME=bob roslaunch strands_datacentre datacentre.launch
+```
+
+
 * Run the autonomous docking service:
 
+           $ roslaunch scitos_docking charging.launch
+           
+           or:
+           
            $ rosrun scitos_docking visual_charging
+           
+           
 
-* Calibrate the docking:
+
+* Calibrate the docking as detailed in the scitos_docking package:
 ```bash
 rosrun actionlib axclient.py /chargingServer
 ```
@@ -116,9 +132,16 @@ Timeout: 1000
 ```
 Then press the `SEND GOAL` button.
 
+* If you already have waypoints in your datacentre, proceed to execute. Otherwise, to insert the waypoints from a waypoint log file (as created using the waypoint recorder) into your datacentre:
+```bash
+rosrun waypoint_recorder insert_in_db.py waypoints.csv waypoint_set_name map_name
+```
+Currently map_name is unimportant (until the maps are also stored in db), and the first waypoint is assumed to be the pre-charging waypoint. 
+
 * Launch the patroller:
   
-           $ roslaunch waypoint_patroller long_term_patroller.launch waypoints:="file path to the waypoints file" randomized:="value" n_it:="number of iterations"
+           $ roslaunch waypoint_patroller long_term_patroller.launch waypoints:=waypoint_set_name <randomized:="value"> <n_it:="number of iterations">
+
            
    * The optional argument randomized can be true or false. Default is true. If false is given, then the points are visited sequentially
    * The optional argument n_it specifies how many complete iterations of all the points should be done before the patroller outputs succeeded. Default is -1, which means infinite iterations
