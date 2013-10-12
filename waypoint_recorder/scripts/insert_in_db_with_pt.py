@@ -4,7 +4,7 @@ import rospy
 
 from interactive_markers.interactive_marker_server import *
 from geometry_msgs.msg import Pose
-from scitos_msgs import PanTilt
+from scitos_msgs.msg import PanTilt
 
 import pymongo
 import csv
@@ -52,10 +52,10 @@ def way_points_file_to_datacentre(filename, dataset_name, map_name):
 		entry["name"]="Point%d_pan_tilt"%i
 		pt.pan_start = point[7]	
 		pt.pan_increment = point[8]	
-		pt.pan_stop = point[9]	
+		pt.pan_end = point[9]	
 		pt.tilt_start = point[10]	
 		pt.tilt_increment = point[11]	
-		pt.tilt_stop = point[12]	
+		pt.tilt_end = point[12]	
         	
 		strands_datacentre.util.store_message(points_db,pt,entry)
 
