@@ -206,7 +206,9 @@ class HighLevelMoveBase(smach.StateMachine, Loggable):
                                                     'move_base_failure',
                                                     'battery_low'],
                                           input_keys=['goal_pose',
-                                                      'going_to_charge'] )
+                                                      'going_to_charge',
+						      'goal_pan_tilt'],
+					  output_keys=['goal_pan_tilt'])
         self._monitored_recoverable_move_base = MonitoredRecoverableMoveBase()
         self._recover_bumper =  RecoverBumper()
         self._recover_carpet =  RecoverStuckOnCarpet()

@@ -5,6 +5,7 @@ import rospy
 from random import shuffle
 from . import charging, navigation
 from logger import Loggable
+from pan_tilt import *
 
 
 from scitos_msgs.msg import BatteryState
@@ -47,7 +48,7 @@ class PointChooser(smach.State, Loggable):
                              outcomes=['patrol',
                                        'go_charge',
                                        'succeeded'],
-                             output_keys=['goal_pose', 'going_to_charge', 'pan_tilt']
+                             output_keys=['goal_pose', 'going_to_charge', 'goal_pan_tilt']
                              )
         
         self.LOW_BATTERY = 35
@@ -149,6 +150,7 @@ class PointChooser(smach.State, Loggable):
             current_pt = self.points[self.current_point]
             userdata.goal_pose = self._get_point(current_pt[1], current_pt[0])
 	    current_pan_tilt = self._get_pantilt(current_pt[1], current_pt[0])
+	    userdata.goal_pan_tilt = current_pan_tilt 
 
 	    print "Pan Tilt for this point ", current_pan_tilt
 	    
@@ -193,6 +195,9 @@ class WaypointPatroller(smach.StateMachine, Loggable):
         self._point_chooser =  PointChooser(waypoints_name,
                                             is_random,
                                             n_iterations)
+
+	self._pan_tilt_state = PanTiltState()
+	
         self._high_level_move_base =  navigation.HighLevelMoveBase()
         self._dock_undock = charging.BumpRecoverableDockUndockBehaviour()
         
@@ -205,10 +210,17 @@ class WaypointPatroller(smach.StateMachine, Loggable):
             smach.StateMachine.add('PATROL_POINT',
                                    #navigation.HighLevelMoveBase(),
                                    self._high_level_move_base, 
-                                   transitions={'succeeded': 'POINT_CHOOSER',
+                                   transitions={'succeeded': 'PAN_TILT_POINT',
                                                 'battery_low': 'POINT_CHOOSER',
                                                 'bumper_failure': 'aborted',
                                                 'move_base_failure': 'POINT_CHOOSER'})
+            smach.StateMachine.add('PAN_TILT_POINT',
+                                   #navigation.HighLevelMoveBase(),
+                                   self._pan_tilt_state,
+				   transitions={'succeeded':'POINT_CHOOSER', 
+						'failure':'POINT_CHOOSER', 
+						'not_defined':'POINT_CHOOSER'}) 
+
             smach.StateMachine.add('GO_TO_CHARGING_STATION',
                                    #navigation.HighLevelMoveBase(),
                                    self._high_level_move_base, 
