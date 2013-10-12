@@ -160,6 +160,9 @@ class PointChooser(smach.State, Loggable):
         else:
             userdata.goal_pose = self._get_point("charging_point",
                                                  self.point_set)
+	    userdata.goal_pan_tilt = self._get_pantilt("charging_point",
+                                                 self.point_set) 
+ 
             self.get_logger().log_waypoint_visit("charging_point")
             userdata.going_to_charge = 1
             return 'go_charge'

@@ -42,35 +42,35 @@ class PanTiltState(smach.State, Loggable):
 
 	print 'Pan Tilt parameters ',pt
 
-#        if (len(userdata.goal_pose) > 12):
-#           pose = scitos_ptu.msg.PanTiltGoal()
-#           pose.pan_start = userdata.goal_pose[7]
-#           pose.pan_step = userdata.goal_pose[8]
-#           pose.pan_end = userdata.goal_pose[9]
-#           pose.tilt_start = userdata.goal_pose[10]
-#           pose.tilt_step = userdata.goal_pose[11]
-#           pose.tilt_end = userdata.goal_pose[12]
+        if (not (userdata.goal_pan_tilt.pan_increment == 1 and userdata.goal_pan_tilt.tilt_increment == 1)):
+           pose = scitos_ptu.msg.PanTiltGoal()
+           pose.pan_start = userdata.goal_pan_tilt.pan_start
+           pose.pan_step = userdata.goal_pan_tilt.pan_increment
+           pose.pan_end = userdata.goal_pan_tilt.pan_end
+           pose.tilt_start = userdata.goal_pan_tilt.tilt_start
+           pose.tilt_step = userdata.goal_pan_tilt.tilt_increment
+           pose.tilt_end = userdata.goal_pan_tilt.titl_end
 
-           # START LOGGING HERE
+          # START LOGGING HERE
 #           logging_server = rospy.ServiceProxy('loggins_server', LoggingServer)
 #           success = logging_server('start', '')
 
-#           self.ptuClient.send_goal(pose)
-#           self.ptuClient.wait_for_result()
-#           result=self.ptuClient.get_result()
-#           rospy.loginfo("PanTilt action server returned with state ")
-#           rospy.loginfo(result)
+           self.ptuClient.send_goal(pose)
+           self.ptuClient.wait_for_result()
+           result=self.ptuClient.get_result()
+           rospy.loginfo("PanTilt action server returned with state ")
+           rospy.loginfo(result)
 
-           # END LOGGIING HERE
-#           success = logging_server('stop', '')
+          # END LOGGIING HERE
+ #          success = logging_server('stop', '')
 
-#           if result != GoalStatus.SUCCEEDED:
-#              return 'failure'
-#           else:
-        return 'succeeded'
+           if result != GoalStatus.SUCCEEDED:
+              return 'failure'
+           else:
+       return 'succeeded'
 
-#        else:
-#            rospy.loginfo("Pan tilt action not defined for this waypoint.")
-#            return 'not_defined'
+        else:
+            rospy.loginfo("Pan tilt action not defined for this waypoint.")
+            return 'not_defined'
 
 
