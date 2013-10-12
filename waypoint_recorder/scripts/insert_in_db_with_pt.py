@@ -48,8 +48,11 @@ def way_points_file_to_datacentre(filename, dataset_name, map_name):
         strands_datacentre.util.store_message(points_db,p,entry)
 
 	if (len(point) > 12):
-		pt = PanTilt()
+		entry={}
 		entry["name"]="Point%d_pan_tilt"%i
+		entry["map"]=map_name
+        	entry["pantiltset"]=dataset_name
+		pt = PanTilt()
 		pt.pan_start = point[7]	
 		pt.pan_increment = point[8]	
 		pt.pan_end = point[9]	
