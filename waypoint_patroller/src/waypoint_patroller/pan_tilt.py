@@ -49,7 +49,7 @@ class PanTiltState(smach.State, Loggable):
            pose.pan_end = userdata.goal_pan_tilt.pan_end
            pose.tilt_start = userdata.goal_pan_tilt.tilt_start
            pose.tilt_step = userdata.goal_pan_tilt.tilt_increment
-           pose.tilt_end = userdata.goal_pan_tilt.titl_end
+           pose.tilt_end = userdata.goal_pan_tilt.tilt_end
 
           # START LOGGING HERE
 #           logging_server = rospy.ServiceProxy('loggins_server', LoggingServer)
@@ -67,7 +67,7 @@ class PanTiltState(smach.State, Loggable):
            if result != GoalStatus.SUCCEEDED:
               return 'failure'
            else:
-       return 'succeeded'
+	      return 'succeeded'
 
         else:
             rospy.loginfo("Pan tilt action not defined for this waypoint.")
