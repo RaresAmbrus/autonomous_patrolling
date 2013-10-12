@@ -92,7 +92,9 @@ class PointChooser(smach.State, Loggable):
         search =  {"meta.pantiltset": point_set}
         for pt in mongo.autonomous_patrolling.waypoints.find(search):
             print pt
-                pts.append([point_set, point["meta"]["name"]])
+            pts.append([point_set, pt["meta"]["name"]])
+
+	print "Pan tilts ",pts
         return pts
 
     """ Get a given waypoint pose """
@@ -116,7 +118,7 @@ class PointChooser(smach.State, Loggable):
 	pt_name = point_name+"_pan_tilt"
 	
 	try:
-	   index = self.pantilts.index(pt_name)
+	   index = self.pantilts.index([point_set,pt_name])
            search = {"meta.name": pt_name,
                      "meta.pantiltset": point_set}
            p = mongo.autonomous_patrolling.waypoints.find(search)            
@@ -124,7 +126,7 @@ class PointChooser(smach.State, Loggable):
            meta, pt = strands_datacentre.util.document_to_msg(p, PanTilt)
 	except ValueError:
 	   # No pan tilt defined for this waypoint	
-
+	   print "Pan tilt not defined for ", point_name
         return pt
 
     """ /battery_state subscription callback"""
