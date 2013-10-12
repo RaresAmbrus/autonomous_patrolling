@@ -20,8 +20,8 @@ from geometry_msgs.msg import Twist
 #there is a recovery behaviour for move_base and another for when the bumper is pressed
 
 
-MAX_BUMPER_RECOVERY_ATTEMPTS=10
-MAX_MOVE_BASE_RECOVERY_ATTEMPTS=5
+MAX_BUMPER_RECOVERY_ATTEMPTS=3
+MAX_MOVE_BASE_RECOVERY_ATTEMPTS=1
 
 
 
