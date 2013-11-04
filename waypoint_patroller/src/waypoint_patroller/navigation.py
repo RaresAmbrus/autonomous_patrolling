@@ -8,13 +8,12 @@ from actionlib_msgs.msg import *
 from move_base_msgs.msg import *
 
 
-from monitor_states import BatteryMonitor, BumperMonitor, StuckOnCarpetMonitor
+from monitor_states import BatteryMonitor, BumperMonitor, StuckOnCarpetMonitor, NavPauseMonitor
 from recover_states import RecoverMoveBase,  RecoverBumper, RecoverStuckOnCarpet
 from logger import Loggable
 
 
-MOVE_BASE_EXEC_TIMEOUT = rospy.Duration(600.0)
-MOVE_BASE_PREEMPT_TIMEOUT = rospy.Duration(10.0)
+
 
 """
 A SimpleActionState that sends a goal to the navigation stack using move_base
@@ -28,6 +27,11 @@ output keys:	n_move_base_fails	- see input.
 """
 class MoveBaseActionState(smach_ros.SimpleActionState, Loggable):
     def __init__(self):
+        
+        self.MOVE_BASE_EXEC_TIMEOUT = rospy.Duration(600.0)
+        self.MOVE_BASE_PREEMPT_TIMEOUT = rospy.Duration(30.0)
+        
+        
         smach_ros.SimpleActionState.__init__(self,
                                              'move_base',
                                              MoveBaseAction,
@@ -36,9 +40,9 @@ class MoveBaseActionState(smach_ros.SimpleActionState, Loggable):
                                              input_keys=['goal_pose',
                                                          'n_move_base_fails'],
                                              output_keys=['n_move_base_fails'],
-                                             exec_timeout=MOVE_BASE_EXEC_TIMEOUT,
-                                             preempt_timeout=MOVE_BASE_PREEMPT_TIMEOUT
-                                             )
+                                             exec_timeout=self.MOVE_BASE_EXEC_TIMEOUT,
+                                             preempt_timeout=self.MOVE_BASE_PREEMPT_TIMEOUT
+                                             )                                 
         
     """ callback that builds the move_base goal, from the input data """
     def move_base_goal_cb(self, userdata, goal):
@@ -51,7 +55,8 @@ class MoveBaseActionState(smach_ros.SimpleActionState, Loggable):
     
     
     """
-    called after the move_base state terminates. Increases the number of
+    called after the move_base state terminates. Incre                continue
+ases the number of
     move_base fails or resets it to 0 according to the move_base result
     """
     def move_base_result_cb(self, userdata, status, result):
@@ -81,7 +86,7 @@ class RecoverableMoveBase(smach.StateMachine, Loggable):
                                               'preempted'],
                                     input_keys=['goal_pose'])
 
-        #self.userdata.n_move_base_fails = 0
+        self.userdata.n_move_base_fails = 0
         self._move_base_action = MoveBaseActionState()
         self._recover_move_base =  RecoverMoveBase()
         with self:
@@ -104,6 +109,9 @@ class RecoverableMoveBase(smach.StateMachine, Loggable):
             self.get_logger().log_waypoint_fail(userdata.goal_pose)
             
         return outcome
+        
+    def set_patroller_thresholds(self, max_move_base_recovery_attempts):
+        self._recover_move_base.set_patroller_thresholds(max_move_base_recovery_attempts)         
             
 """
 A monitored version of RecoverableMoveBase. Adds checking for battery level
@@ -118,27 +126,29 @@ input keys:	goal_pose
             going_to_charge
 """
 class MonitoredRecoverableMoveBase(smach.Concurrence, Loggable):
-    def __init__(self):
+    def __init__(self,going_to_charge):
         smach.Concurrence.__init__(self,
                                    outcomes=['bumper_pressed',
                                              'battery_low',
                                              'succeeded',
                                              'failure',
-                                             'stuck_on_carpet'],
+                                             'stuck_on_carpet',
+                                             'pause_requested'],
                                    default_outcome='failure',
                                    child_termination_cb=self.child_term_cb,
                                    outcome_cb=self.out_cb,
-                                   input_keys=['goal_pose',
-                                               'going_to_charge']
+                                   input_keys=['goal_pose']
                                    )
-        self._battery_monitor = BatteryMonitor()
+        self._battery_monitor = BatteryMonitor(going_to_charge)
         self._bumper_monitor = BumperMonitor()
         self._recoverable_move_base = RecoverableMoveBase()
         self._carpet_monitor = StuckOnCarpetMonitor()
+        self._nav_pause_monitor=NavPauseMonitor(False)
         with self:
             smach.Concurrence.add('BATTERY_MONITOR', self._battery_monitor)
             smach.Concurrence.add('BUMPER_MONITOR', self._bumper_monitor)
             smach.Concurrence.add('STUCK_ON_CARPET_MONITOR', self._carpet_monitor)
+            smach.Concurrence.add('NAV_PAUSE_MONITOR', self._nav_pause_monitor)
             smach.Concurrence.add('MOVE_BASE_SM', self._recoverable_move_base)
     
     def child_term_cb(self, outcome_map):
@@ -146,8 +156,9 @@ class MonitoredRecoverableMoveBase(smach.Concurrence, Loggable):
         # stop
         if ( outcome_map['BUMPER_MONITOR'] == 'invalid' or
              outcome_map["BATTERY_MONITOR"] == "invalid" or
-             outcome_map["MOVE_BASE_SM"] == "succeeded" or
              outcome_map["STUCK_ON_CARPET_MONITOR"] == "invalid" or
+             outcome_map["NAV_PAUSE_MONITOR"] == "invalid" or             
+             outcome_map["MOVE_BASE_SM"] == "succeeded" or
              outcome_map['MOVE_BASE_SM'] == "failure" ):
             return True
         return False
@@ -165,6 +176,8 @@ class MonitoredRecoverableMoveBase(smach.Concurrence, Loggable):
             return "battery_low"
         if outcome_map["STUCK_ON_CARPET_MONITOR"] == "invalid":
             return "stuck_on_carpet"
+        if outcome_map["NAV_PAUSE_MONITOR"] == "invalid":
+            return "pause_requested"
         if outcome_map["MOVE_BASE_SM"] == "succeeded":
             return "succeeded"
         if outcome_map["MOVE_BASE_SM"] == "failure":
@@ -174,11 +187,12 @@ class MonitoredRecoverableMoveBase(smach.Concurrence, Loggable):
     """ 
     Set the battery level thresholds.
     """
-    def set_battery_thresholds(self, very_low_battery, low_battery,
-                               charged_battery):
-        self._battery_monitor.set_battery_thresholds(very_low_battery,
+    def set_patroller_thresholds(self, very_low_battery, low_battery,
+                               charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts):
+        self._battery_monitor.set_patroller_thresholds(very_low_battery,
                                                      low_battery,
                                                      charged_battery)
+        self._recoverable_move_base.set_patroller_thresholds(max_move_base_recovery_attempts)
     
 
 
@@ -200,18 +214,17 @@ input_keys:	goal_pose		- geometry_msgs/Pose, the target location in /map
             				  cancel because of the battery monitor
 """
 class HighLevelMoveBase(smach.StateMachine, Loggable):
-    def __init__(self):
+    def __init__(self,going_to_charge):
         smach.StateMachine.__init__(self, outcomes=['succeeded',
-                                                    'bumper_failure',
                                                     'move_base_failure',
                                                     'battery_low'],
                                           input_keys=['goal_pose',
-                                                      'going_to_charge',
 						      'goal_pan_tilt'],
 					  output_keys=['goal_pan_tilt'])
-        self._monitored_recoverable_move_base = MonitoredRecoverableMoveBase()
+        self._monitored_recoverable_move_base = MonitoredRecoverableMoveBase(going_to_charge)
         self._recover_bumper =  RecoverBumper()
         self._recover_carpet =  RecoverStuckOnCarpet()
+        self._nav_resume_monitor=NavPauseMonitor(True)        
         with self:
             smach.StateMachine.add('MONITORED_MOVE_BASE',
                                    self._monitored_recoverable_move_base,
@@ -219,23 +232,29 @@ class HighLevelMoveBase(smach.StateMachine, Loggable):
                                                 'battery_low': 'battery_low',
                                                 'succeeded': 'succeeded',
                                                 'failure': 'move_base_failure',
-                                                'stuck_on_carpet':'RECOVER_STUCK_ON_CARPET'})
+                                                'stuck_on_carpet':'RECOVER_STUCK_ON_CARPET',
+                                                'pause_requested':'NAV_RESUME_MONITOR'})
             smach.StateMachine.add('RECOVER_BUMPER',
                                    self._recover_bumper,
-                                   transitions={'succeeded': 'MONITORED_MOVE_BASE',
-                                                'failure': 'bumper_failure'})
+                                   transitions={'succeeded': 'MONITORED_MOVE_BASE'})
             smach.StateMachine.add('RECOVER_STUCK_ON_CARPET',
                                    self._recover_carpet,
                                    transitions={'succeeded': 'MONITORED_MOVE_BASE',
                                                 'failure': 'RECOVER_STUCK_ON_CARPET'})
+            smach.StateMachine.add('NAV_RESUME_MONITOR',
+                                   self._nav_resume_monitor,
+                                   transitions={'invalid': 'MONITORED_MOVE_BASE',
+                                                'valid': 'MONITORED_MOVE_BASE',
+                                                'preempted':'MONITORED_MOVE_BASE'})                                                
     
     
     """ 
     Set the battery level thresholds.
     """
-    def set_battery_thresholds(self, very_low_battery, low_battery,
-                               charged_battery):
-        self._monitored_recoverable_move_base.set_battery_thresholds(very_low_battery,
+    def set_patroller_thresholds(self, very_low_battery, low_battery,
+                               charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts):
+        self._monitored_recoverable_move_base.set_patroller_thresholds(very_low_battery,
                                                      low_battery,
-                                                     charged_battery)
+                                                     charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts)
+        self._recover_bumper.set_patroller_thresholds(max_bumper_recovery_attempts)
     
