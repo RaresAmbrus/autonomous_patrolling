@@ -212,6 +212,7 @@ class WaypointPatroller(smach.StateMachine, Loggable):
         self._high_level_move_base_charge =  navigation.HighLevelMoveBase(True)
         self._dock_undock = charging.HighLevelDockUndockBehaviour()
         self._very_low_battery=VeryLowBattery()
+	self._pan_tilt_state = PanTiltState()
         
         with self:
             smach.StateMachine.add('POINT_CHOOSER',
