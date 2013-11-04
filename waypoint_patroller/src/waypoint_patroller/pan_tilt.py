@@ -67,8 +67,7 @@ class PanTiltState(smach.State, Loggable):
            if result != GoalStatus.SUCCEEDED:
               return 'failure'
            else:
-       	      return 'succeeded'
-
+	      return 'succeeded'
         else:
             rospy.loginfo("Pan tilt action not defined for this waypoint.")
             return 'not_defined'
