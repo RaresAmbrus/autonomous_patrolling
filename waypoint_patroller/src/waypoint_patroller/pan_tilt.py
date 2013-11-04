@@ -42,7 +42,7 @@ class PanTiltState(smach.State, Loggable):
 
 	print 'Pan Tilt parameters ',pt
 
-        if (not (userdata.goal_pan_tilt.pan_increment == 1 and userdata.goal_pan_tilt.tilt_increment == 1)):
+        if (not (userdata.goal_pan_tilt.pan_increment == -1 and userdata.goal_pan_tilt.tilt_increment == -1)):
            pose = scitos_ptu.msg.PanTiltGoal()
            pose.pan_start = userdata.goal_pan_tilt.pan_start
            pose.pan_step = userdata.goal_pan_tilt.pan_increment
@@ -68,7 +68,6 @@ class PanTiltState(smach.State, Loggable):
               return 'failure'
            else:
 	      return 'succeeded'
-
         else:
             rospy.loginfo("Pan tilt action not defined for this waypoint.")
             return 'not_defined'
