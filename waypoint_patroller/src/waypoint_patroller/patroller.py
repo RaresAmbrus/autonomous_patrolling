@@ -17,6 +17,18 @@ got_pymongo = strands_datacentre.util.check_for_pymongo()
 if got_pymongo:
     import pymongo
 
+    
+    
+    
+class VeryLowBattery(smach.State, Loggable):
+    def __init__(self):
+        smach.State.__init__(self)
+        
+    def execute(self, userdata):
+        while not rospy.is_shutdown():
+            rospy.sleep(1)
+    
+    
 
 """
 The point chooser state selects which waypoint to visit next. It checks the
@@ -32,7 +44,7 @@ outcomes: 	'patrol': 		a standard waypoint was selected
             'succeeded':	if required no. of iterations achieved
 
 ouput keys:	'goal_pose':		geometry_msgs/Pose that should drive to
-			'going_to_charge':	bool, is the next point the pre-charge location	
+
 """
 class PointChooser(smach.State, Loggable):
     """
@@ -46,7 +58,7 @@ class PointChooser(smach.State, Loggable):
                              outcomes=['patrol',
                                        'go_charge',
                                        'succeeded'],
-                             output_keys=['goal_pose', 'going_to_charge']
+                             output_keys=['goal_pose']
                              )
         
         self.LOW_BATTERY = 35
@@ -114,20 +126,18 @@ class PointChooser(smach.State, Loggable):
             current_pt = self.points[self.current_point]
             userdata.goal_pose = self._get_point(current_pt[1], current_pt[0])
             self.get_logger().log_waypoint_visit(current_pt[1])
-            userdata.going_to_charge = 0
             return 'patrol'
         else:
             userdata.goal_pose = self._get_point("charging_point",
                                                  self.point_set)
             self.get_logger().log_waypoint_visit("charging_point")
-            userdata.going_to_charge = 1
             return 'go_charge'
         
     """ 
     Set the battery level thresholds.
     """
-    def set_battery_thresholds(self, very_low_battery, low_battery,
-                               charged_battery):
+    def set_patroller_thresholds(self, very_low_battery, low_battery,
+                               charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts):
         self.LOW_BATTERY = low_battery
 
 """
@@ -154,8 +164,10 @@ class WaypointPatroller(smach.StateMachine, Loggable):
         self._point_chooser =  PointChooser(waypoints_name,
                                             is_random,
                                             n_iterations)
-        self._high_level_move_base =  navigation.HighLevelMoveBase()
-        self._dock_undock = charging.BumpRecoverableDockUndockBehaviour()
+        self._high_level_move_base_patrol =  navigation.HighLevelMoveBase(False)
+        self._high_level_move_base_charge =  navigation.HighLevelMoveBase(True)
+        self._dock_undock = charging.HighLevelDockUndockBehaviour()
+        self._very_low_battery=VeryLowBattery()
         
         with self:
             smach.StateMachine.add('POINT_CHOOSER',
@@ -165,39 +177,48 @@ class WaypointPatroller(smach.StateMachine, Loggable):
                                                 'succeeded': 'succeeded'})
             smach.StateMachine.add('PATROL_POINT',
                                    #navigation.HighLevelMoveBase(),
-                                   self._high_level_move_base, 
+                                   self._high_level_move_base_patrol, 
                                    transitions={'succeeded': 'POINT_CHOOSER',
                                                 'battery_low': 'POINT_CHOOSER',
-                                                'bumper_failure': 'aborted',
                                                 'move_base_failure': 'POINT_CHOOSER'})
             smach.StateMachine.add('GO_TO_CHARGING_STATION',
                                    #navigation.HighLevelMoveBase(),
-                                   self._high_level_move_base, 
+                                   self._high_level_move_base_charge, 
                                    transitions={'succeeded': 'DOCK_AND_CHARGE',
-                                                'battery_low': 'GO_TO_CHARGING_STATION',
-                                                'bumper_failure': 'aborted',
-                                                'move_base_failure': 'aborted'})
+                                                'battery_low': 'VERY_LOW_BATTERY',
+                                                'move_base_failure': 'POINT_CHOOSER'})
             
             smach.StateMachine.add('DOCK_AND_CHARGE',
                                    self._dock_undock,
                                    transitions={'succeeded': 'POINT_CHOOSER',
-                                                'failure': 'aborted'})
+                                                'failure': 'POINT_CHOOSER'})
             
+            smach.StateMachine.add('VERY_LOW_BATTERY',
+                                   self._very_low_battery)
 
     """ 
-    Set the battery level thresholds.
+    Set the patoller thresholds.
     """
-    def set_battery_thresholds(self, very_low_battery, low_battery,
-                               charged_battery):
-        self._point_chooser.set_battery_thresholds(very_low_battery,
+    def set_patroller_thresholds(self, very_low_battery, low_battery,
+                               charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts):
+        self._point_chooser.set_patroller_thresholds(very_low_battery,
                                                    low_battery, 
-                                                   charged_battery)
-        self._high_level_move_base.set_battery_thresholds(very_low_battery,
+                                                   charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts)
+        self._high_level_move_base_patrol.set_patroller_thresholds(very_low_battery,
                                                           low_battery, 
-                                                          charged_battery)
-        self._dock_undock.set_battery_thresholds(very_low_battery,
+                                                          charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts)
+        self._high_level_move_base_charge.set_patroller_thresholds(very_low_battery,
                                                           low_battery, 
-                                                          charged_battery)
+                                                          charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts)                                                          
+        self._dock_undock.set_patroller_thresholds(very_low_battery,
+                                                          low_battery, 
+                                                          charged_battery,max_bumper_recovery_attempts,max_move_base_recovery_attempts)
+        rospy.loginfo("Updating patroller thresholds::")
+        rospy.loginfo("V.Low="+str(very_low_battery))
+        rospy.loginfo("Low="+str(low_battery))
+        rospy.loginfo("Charged="+str(charged_battery))
+        rospy.loginfo("Max bumper recovers before sending e-mail="+str(max_bumper_recovery_attempts))
+        rospy.loginfo("Max move_base recovers before going to a new point="+str(max_move_base_recovery_attempts))
    
 
     def execute(self):
