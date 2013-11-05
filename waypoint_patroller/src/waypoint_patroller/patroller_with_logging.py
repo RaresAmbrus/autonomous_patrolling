@@ -1,6 +1,8 @@
 import smach
 import smach_ros
 import rospy
+import os, datetime
+from subprocess import Popen, PIPE
 
 from random import shuffle
 from . import charging, navigation
@@ -85,6 +87,13 @@ class PointChooser(smach.State, Loggable):
         self.battery_monitor = rospy.Subscriber(
             "/battery_state", BatteryState, self.bat_cb)
 
+	# LOGGING
+	mydir = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+	os.makedirs(mydir)
+	process_argument = " record.launch bag_folder:="+mydir
+	print 'Creating new logging folder at the beginning of the patrol run ',mydir, ' process argument ',process_argument
+	self.process = Popen("roslaunch",process_argument, stdout=PIPE)
+
     """ Get a list of points in the given set """
     def _get_points(self, point_set):
         mongo = pymongo.MongoClient(rospy.get_param("datacentre_host"),
@@ -150,8 +159,24 @@ class PointChooser(smach.State, Loggable):
         rospy.sleep(1)
 
         if self.battery_life > self.LOW_BATTERY + 5:
+	    # LOGGING
+	    if self.current_point == 0:
+		# START LOGGING
+		mydir = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+		os.makedirs(mydir)
+		process_argument = " record.launch bag_folder:="+mydir
+		print 'Creating new logging folder at the beginning of the patrol run ',mydir, ' process argument ',process_argument
+		self.process = Popen("roslaunch",process_argument, stdout=PIPE)
+
+	    if self.current_point == self.n_points:
+		print 'Stopping logging'
+		self.process.kill()
+		
             self.current_point = self.current_point + 1
             if self.current_point == self.n_points:
+		# STOP LOGGING SERVER WITH THE NEW FOLDER
+		# CREATE NEW LOGGING FOLDER
+		# START LOGGING SERVER WITH THE NEW FOLDER
                 self.iterations_completed = self.iterations_completed + 1
                 if self.iterations_completed == self.n_iterations:
                     return 'succeeded'
@@ -165,6 +190,7 @@ class PointChooser(smach.State, Loggable):
 	    userdata.goal_pan_tilt = current_pan_tilt 
 
 	    print "Pan Tilt for this point ", current_pan_tilt
+
 	    
             self.get_logger().log_waypoint_visit(current_pt[1])
             return 'patrol'
@@ -223,7 +249,7 @@ class WaypointPatroller(smach.StateMachine, Loggable):
             smach.StateMachine.add('PATROL_POINT',
                                    #navigation.HighLevelMoveBase(),
                                    self._high_level_move_base_patrol, 
-                                   transitions={'succeeded': 'PAN_TILT_POINT'
+                                   transitions={'succeeded': 'PAN_TILT_POINT',
                                                 'battery_low': 'POINT_CHOOSER',
                                                 'move_base_failure': 'POINT_CHOOSER'})
             smach.StateMachine.add('PAN_TILT_POINT',
