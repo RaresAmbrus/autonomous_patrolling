@@ -15,7 +15,7 @@ from actionlib_msgs.msg import *
 from move_base_msgs.msg import *
 from scitos_ptu.msg import *
 from sensor_msgs.msg import JointState
-from openni_saver import LoggingService
+from openni_saver.srv import LoggingService
 
 class PanTiltState(smach.State, Loggable):
     def __init__(self):
@@ -53,7 +53,7 @@ class PanTiltState(smach.State, Loggable):
            pose.tilt_end = userdata.goal_pan_tilt.tilt_end
 
           # START LOGGING HERE
-           logging_service = rospy.ServiceProxy('logging_server', LoggingService)
+           logging_service = rospy.ServiceProxy('logging_service', LoggingService)
            success = logging_service('start', '')
 
            self.ptuClient.send_goal(pose)
@@ -62,8 +62,8 @@ class PanTiltState(smach.State, Loggable):
            rospy.loginfo("PanTilt action server returned with state ")
            rospy.loginfo(result)
 
-          # END LOGGIING HERE
-          success = logging_service('stop', '')
+           # END LOGGIING HERE
+           success = logging_service('stop', '')
 
            if result != GoalStatus.SUCCEEDED:
               return 'failure'

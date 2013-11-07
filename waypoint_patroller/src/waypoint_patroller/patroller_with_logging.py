@@ -3,6 +3,7 @@ import smach_ros
 import rospy
 import os, datetime
 from subprocess import Popen, PIPE
+import shlex
 
 from random import shuffle
 from . import charging, navigation
@@ -90,9 +91,10 @@ class PointChooser(smach.State, Loggable):
 	# LOGGING
 	mydir = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 	os.makedirs(mydir)
-	process_argument = " record.launch bag_folder:="+mydir
+	process_argument = "roslaunch strandsbag record.launch bag_folder:="+mydir
 	print 'Creating new logging folder at the beginning of the patrol run ',mydir, ' process argument ',process_argument
-	self.process = Popen("roslaunch",process_argument, stdout=PIPE)
+	self.process = Popen(shlex.split(process_argument))
+	#self.process.communicate()
 
     """ Get a list of points in the given set """
     def _get_points(self, point_set):
@@ -159,20 +161,23 @@ class PointChooser(smach.State, Loggable):
         rospy.sleep(1)
 
         if self.battery_life > self.LOW_BATTERY + 5:
+		
+            self.current_point = self.current_point + 1
 	    # LOGGING
 	    if self.current_point == 0:
 		# START LOGGING
 		mydir = os.path.join(os.getcwd(), datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-		os.makedirs(mydir)
-		process_argument = " record.launch bag_folder:="+mydir
+		#os.makedirs(mydir)
+		process_argument = "roslaunch strandsbag record.launch bag_folder:="+mydir
 		print 'Creating new logging folder at the beginning of the patrol run ',mydir, ' process argument ',process_argument
-		self.process = Popen("roslaunch",process_argument, stdout=PIPE)
+		#self.process = Popen(shlex.split(process_argument))
 
 	    if self.current_point == self.n_points:
-		print 'Stopping logging'
-		self.process.kill()
+		print '---------------------Stopping logging---------------------------'
+		self.process.terminate()
+
+	    print 'now visiting point ID ',self.current_point
 		
-            self.current_point = self.current_point + 1
             if self.current_point == self.n_points:
 		# STOP LOGGING SERVER WITH THE NEW FOLDER
 		# CREATE NEW LOGGING FOLDER
